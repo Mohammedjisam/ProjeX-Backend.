@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 export interface IUser extends Document {
   name: string;
@@ -8,9 +9,12 @@ export interface IUser extends Document {
   password?: string;
   role: 'admin' | 'companyAdmin' | 'manager' | 'projectManager' | 'developer';
   isGoogleAccount: boolean;
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
+  createPasswordResetToken(): Promise<string>;
 }
 
 const userSchema = new Schema<IUser>(
@@ -43,6 +47,8 @@ const userSchema = new Schema<IUser>(
       type: Boolean,
       default: false,
     },
+    passwordResetToken: String,
+    passwordResetExpires: Date,
   },
   {
     timestamps: true,
@@ -60,6 +66,22 @@ userSchema.pre('save', async function (next) {
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
   if (!this.password) return false; // Google users can't compare password
   return bcrypt.compare(candidatePassword, this.password);
+};
+
+userSchema.methods.createPasswordResetToken = async function (): Promise<string> {
+  const resetToken = crypto.randomBytes(32).toString('hex');
+
+  this.passwordResetToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+
+  // Token expires in 24 hours
+  this.passwordResetExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  await this.save({ validateBeforeSave: false });
+
+  return resetToken;
 };
 
 export const User = mongoose.model<IUser>('User', userSchema);

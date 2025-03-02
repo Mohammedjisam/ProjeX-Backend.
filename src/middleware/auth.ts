@@ -45,6 +45,9 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
       });
     }
 
+    // Log authentication for monitoring
+    console.log(`User authenticated: ${user._id} (${user.role}) - ${new Date().toISOString()}`);
+
     // Add user to request
     req.user = user;
     next();
