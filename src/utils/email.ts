@@ -100,7 +100,7 @@ export const generatePasswordResetEmailHtml = (
         <p>If the button doesn't work, you can copy and paste the following link in your browser:</p>
         <p>${resetLink}</p>
         <p>This link will expire in 24 hours for security reasons.</p>
-        <p>Thank you,<br>Your Organization Team</p>
+        <p>Thank you,<br>ProjeX Team</p>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
         </div>

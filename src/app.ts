@@ -7,6 +7,8 @@ import passwordRoutes from './routes/password.routes'
 import passport from "passport"
 import { configureGoogleAuth } from "./config/googleAuth"
 import companyAdminRouter from "../src/routes/companyAdminRouter" // Fix import name
+import managerRouter from "./routes/manager"
+import projectRouter from "./routes/project"
 
 // Load environment variables
 dotenv.config()
@@ -43,7 +45,9 @@ configureGoogleAuth()
 // Routes
 app.use("/api/auth", authRoutes)
 app.use("/api/password", passwordRoutes)
-app.use("/api/companyadmin", companyAdminRouter) // Fix route path to include /api prefix
+app.use("/api/companyadmin", companyAdminRouter) 
+app.use("/api/manager", managerRouter) 
+app.use("/api/project",projectRouter)
 
 // Add debug route for Google token verification
 app.post("/api/auth/debug-token", (req, res) => {

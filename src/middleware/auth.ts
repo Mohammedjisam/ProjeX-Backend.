@@ -6,7 +6,7 @@ import { User } from '../models/User';
 declare global {
   namespace Express {
     interface Request {
-      user?: any;
+      User?: any;
     }
   }
 }
@@ -78,6 +78,7 @@ export const authorize = (...roles: string[]) => {
       });
     }
 
+    
     next();
   };
 };

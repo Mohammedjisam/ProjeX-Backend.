@@ -7,7 +7,7 @@ import {
   createManager,
   updateManager,
   deleteManager,
-} from "../controllers/companyAdmin/manager.controller"
+} from "../controllers/manager/manager.controller"
 import { protect } from "../middleware/auth"
 
 // Updated routes to allow any authenticated user to access manager data
