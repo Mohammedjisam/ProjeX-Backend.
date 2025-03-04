@@ -1,5 +1,3 @@
-// 1. First, let's fix the passport configuration (src/config/googleAuth.ts)
-
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { User } from '../models/User';
@@ -25,7 +23,7 @@ export const configureGoogleAuth = () => {
           name: profile.displayName,
           email: email,
           isGoogleAccount: true,
-          role: 'companyAdmin', // Set the role to companyAdmin since we're handling company admin signup
+          role: 'companyAdmin', 
         });
       }
 

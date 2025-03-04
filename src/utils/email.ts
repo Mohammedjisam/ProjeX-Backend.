@@ -11,21 +11,19 @@ interface EmailOptions {
 }
 
 export const sendEmail = async (options: EmailOptions): Promise<void> => {
-  // Create a transporter
   const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.EMAIL_PORT || '587'),
-    secure: false, // Changed from 'true' to false for port 587
+    secure: false, 
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
     tls: {
-      rejectUnauthorized: false // For development environment
+      rejectUnauthorized: false 
     }
   });
 
-  // Define email options
   const mailOptions = {
     from: `${process.env.EMAIL_FROM_NAME || 'ProjeX'} <${process.env.EMAIL_FROM_ADDRESS || process.env.EMAIL_USER}>`,
     to: options.email,
@@ -34,7 +32,6 @@ export const sendEmail = async (options: EmailOptions): Promise<void> => {
     html: options.html,
   };
 
-  // Send the email
   await transporter.sendMail(mailOptions);
 };
 
@@ -74,12 +71,13 @@ export const generatePasswordResetEmailHtml = (
         }
         .button {
           display: inline-block;
-          background-color: #4f46e5;
-          color: white;
+          background-color: #1A1F2C;
+          color: #FFFFFF;
           text-decoration: none;
           padding: 10px 20px;
           border-radius: 5px;
           margin: 20px 0;
+          font-weight: 500;
         }
         .footer {
           margin-top: 30px;

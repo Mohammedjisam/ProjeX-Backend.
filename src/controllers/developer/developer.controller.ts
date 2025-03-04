@@ -1,11 +1,9 @@
-// src/controllers/companyAdmin/developer.controller.ts
 import { Request, Response } from 'express';
 import { User } from '../../models/User';
 import { sendEmail, generatePasswordResetEmailHtml } from '../../utils/email';
 
 export const getDevelopers = async (req: Request, res: Response) => {
   try {
-    // Log who is accessing developers data (for audit purposes)
     console.log(`User ${req.user._id} with role ${req.user.role} accessed developers data`);
     
     const developers = await User.find({ role: 'developer' }).select('name email phoneNumber');
@@ -28,7 +26,6 @@ export const getDevelopers = async (req: Request, res: Response) => {
 
 export const getDeveloperById = async (req: Request, res: Response) => {
   try {
-    // Log who is accessing developer details (for audit purposes)
     console.log(`User ${req.user._id} with role ${req.user.role} accessed developer ID: ${req.params.id}`);
     
     const developer = await User.findOne({ 
@@ -61,7 +58,6 @@ export const createDeveloper = async (req: Request, res: Response) => {
   try {
     const { name, email, phoneNumber } = req.body;
     
-    // Check if email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
@@ -70,7 +66,6 @@ export const createDeveloper = async (req: Request, res: Response) => {
       });
     }
     
-    // Create new developer without password
     const developer = await User.create({
       name,
       email,
@@ -78,13 +73,10 @@ export const createDeveloper = async (req: Request, res: Response) => {
       role: 'developer'
     });
     
-    // Generate password reset token
     const resetToken = await developer.createPasswordResetToken();
     
-    // Create password reset URL
     const resetUrl = `${process.env.FRONTEND_URL}/developer/set-password/${resetToken}`;
     
-    // Send email with password setup link
     try {
       await sendEmail({
         email: developer.email,
@@ -104,7 +96,6 @@ export const createDeveloper = async (req: Request, res: Response) => {
         }
       });
     } catch (emailError) {
-      // If email sending fails, delete the user and return error
       await User.findByIdAndDelete(developer._id);
       
       console.error('Error sending password setup email:', emailError);
@@ -128,7 +119,6 @@ export const updateDeveloper = async (req: Request, res: Response) => {
   try {
     const { name, email, phoneNumber } = req.body;
     
-    // If email is being changed, check if new email is already in use
     if (email) {
       const existingUser = await User.findOne({ 
         email, 

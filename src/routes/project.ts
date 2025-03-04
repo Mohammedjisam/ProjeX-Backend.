@@ -4,7 +4,6 @@ const projectRouter = express.Router();
 import ProjectController from "../controllers/project/project.controller";
 import { protect } from "../middleware/auth";
 
-// Project routes
 projectRouter.get("/getallprojects", protect, ProjectController.getAllProjects);
 projectRouter.get("/getallprojects/:id", protect, ProjectController.getProjectById);
 projectRouter.post("/addnewproject", protect, ProjectController.createProject);

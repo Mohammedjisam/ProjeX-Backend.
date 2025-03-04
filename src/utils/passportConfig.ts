@@ -22,7 +22,7 @@ async (accessToken, refreshToken, profile, done) => {
         name: profile.displayName,
         email: email,
         googleId: profile.id,
-        role: 'developer', // Set default role or customize based on your logic
+        role: 'developer',
       });
     }
 

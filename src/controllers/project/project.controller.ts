@@ -3,43 +3,33 @@ import { Project, IProject } from '../../models/Project';
 import { User } from '../../models/User';
 import mongoose from 'mongoose';
 
-// Type for handling custom error responses
 interface ErrorResponse {
   message: string;
   field?: string;
 }
 
 class ProjectController {
-  /**
-   * Get all projects with pagination and optional filtering
-   * GET /api/projects
-   */
   public getAllProjects = async (req: Request, res: Response): Promise<void> => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
       
-      // Extract filter parameters
       const { status, clientName, startDateFrom, startDateTo } = req.query;
       
-      // Build filter object
       const filter: any = {};
       
       if (status) filter.status = status;
       if (clientName) filter.clientName = new RegExp(clientName as string, 'i'); // Case-insensitive search
       
-      // Date range filtering
       if (startDateFrom || startDateTo) {
         filter.startDate = {};
         if (startDateFrom) filter.startDate.$gte = new Date(startDateFrom as string);
         if (startDateTo) filter.startDate.$lte = new Date(startDateTo as string);
       }
 
-      // Get total count for pagination
       const total = await Project.countDocuments(filter);
       
-      // Query with populated project manager details
       const projects = await Project.find(filter)
         .populate('projectManager', 'name email role')
         .sort({ createdAt: -1 })
@@ -67,10 +57,7 @@ class ProjectController {
     }
   };
 
-  /**
-   * Get project by ID
-   * GET /api/projects/:id
-   */
+  
   public getProjectById = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
@@ -108,10 +95,6 @@ class ProjectController {
     }
   };
 
-  /**
-   * Create a new project
-   * POST /api/projects
-   */
   public createProject = async (req: Request, res: Response): Promise<void> => {
     try {
       const {
@@ -126,7 +109,6 @@ class ProjectController {
         status = 'planned'
       } = req.body;
 
-      // Validate required fields
       const errors: ErrorResponse[] = [];
       
       if (!name) errors.push({ field: 'name', message: 'Project name is required' });
@@ -146,7 +128,6 @@ class ProjectController {
         return;
       }
 
-      // Validate dates
       const startDateObj = new Date(startDate);
       const endDateObj = new Date(endDate);
       
@@ -158,7 +139,6 @@ class ProjectController {
         return;
       }
 
-      // Validate project manager exists and has proper role
       if (mongoose.Types.ObjectId.isValid(projectManager)) {
         const manager = await User.findById(projectManager);
         
@@ -186,7 +166,6 @@ class ProjectController {
         return;
       }
 
-      // Create the project
       const project = await Project.create({
         name,
         description,
@@ -227,10 +206,7 @@ class ProjectController {
     }
   };
 
-  /**
-   * Update project by ID
-   * PUT /api/projects/:id
-   */
+
   public updateProject = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
@@ -243,7 +219,6 @@ class ProjectController {
         return;
       }
   
-      // Find project first to check if it exists
       const existingProject = await Project.findById(id);
       
       if (!existingProject) {
@@ -266,7 +241,6 @@ class ProjectController {
         status
       } = req.body;
   
-      // Validate dates if provided
       if (startDate && endDate) {
         const startDateObj = new Date(startDate);
         const endDateObj = new Date(endDate);
@@ -280,7 +254,6 @@ class ProjectController {
         }
       }
   
-      // Validate project manager if provided
       if (projectManager && !mongoose.Types.ObjectId.isValid(projectManager)) {
         res.status(400).json({
           success: false,
@@ -310,10 +283,8 @@ class ProjectController {
         }
       }
   
-      // Use a different approach to update by fetching, modifying and saving
-      // to avoid validation issues with date fields
+
       if (existingProject) {
-        // Update fields if provided
         if (name) existingProject.name = name;
         if (description) existingProject.description = description;
         if (clientName) existingProject.clientName = clientName;
@@ -324,10 +295,8 @@ class ProjectController {
         if (goal) existingProject.goal = goal;
         if (status) existingProject.status = status as any;
         
-        // Save the updated project
         const updatedProject = await existingProject.save();
         
-        // Populate the project manager details
         await updatedProject.populate('projectManager', 'name email role');
         
         res.status(200).json({
@@ -358,10 +327,7 @@ class ProjectController {
       });
     }
   }
-  /**
-   * Delete project by ID
-   * DELETE /api/projects/:id
-   */
+
   public deleteProject = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
@@ -374,7 +340,6 @@ class ProjectController {
         return;
       }
 
-      // Find project first to check if it exists
       const project = await Project.findById(id);
       
       if (!project) {
@@ -385,7 +350,6 @@ class ProjectController {
         return;
       }
 
-      // Delete the project
       await Project.findByIdAndDelete(id);
 
       res.status(200).json({
@@ -402,10 +366,7 @@ class ProjectController {
     }
   };
 
-  /**
-   * Add a comment to a project
-   * POST /api/projects/:id/comments
-   */
+
   public addComment = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;

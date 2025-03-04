@@ -1,9 +1,7 @@
-// src/controllers/auth/password.controller.ts
 import { Request, Response } from 'express';
 import { User } from '../../models/User';
 import crypto from 'crypto';
 
-// Verify password reset token and let user set new password
 export const resetPassword = async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
@@ -11,7 +9,6 @@ export const resetPassword = async (req: Request, res: Response) => {
     
     console.log('[resetPassword] Processing reset request for token:', token);
     
-    // Hash the token from URL to compare with stored hash
     const hashedToken = crypto
       .createHash('sha256')
       .update(token)
@@ -20,12 +17,10 @@ export const resetPassword = async (req: Request, res: Response) => {
     console.log('[resetPassword] Hashed token:', hashedToken);
     console.log('[resetPassword] Current time:', new Date().toISOString(), '(', Date.now(), ')');
     
-    // Find user with valid token
     let user = await User.findOne({
       passwordResetToken: hashedToken
     });
     
-    // Log user found and check if token is expired
     if (user) {
       console.log('[resetPassword] User found:', { 
         id: user._id, 
@@ -33,7 +28,6 @@ export const resetPassword = async (req: Request, res: Response) => {
         tokenExpires: user.passwordResetExpires ? new Date(user.passwordResetExpires).toISOString() : 'undefined' 
       });
       
-      // Separate check for expiration to provide better error message
       if (user.passwordResetExpires && user.passwordResetExpires < Date.now()) {
         console.log('[resetPassword] Token expired. Expiry:', new Date(user.passwordResetExpires).toISOString());
         return res.status(400).json({
@@ -49,7 +43,6 @@ export const resetPassword = async (req: Request, res: Response) => {
       });
     }
     
-    // Set new password
     user.password = password;
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
@@ -71,14 +64,12 @@ export const resetPassword = async (req: Request, res: Response) => {
   }
 };
 
-// Verify if token is valid (used for frontend to check before showing password form)
 export const validateResetToken = async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
     
     console.log('[validateResetToken] Validating token:', token);
     
-    // Hash the token from URL to compare with stored hash
     const hashedToken = crypto
       .createHash('sha256')
       .update(token)
@@ -87,7 +78,6 @@ export const validateResetToken = async (req: Request, res: Response) => {
     console.log('[validateResetToken] Hashed token:', hashedToken);
     console.log('[validateResetToken] Current time:', new Date().toISOString(), '(', Date.now(), ')');
     
-    // First find user with the token without checking expiration
     let user = await User.findOne({
       passwordResetToken: hashedToken
     });
@@ -106,7 +96,6 @@ export const validateResetToken = async (req: Request, res: Response) => {
       tokenExpires: user.passwordResetExpires ? new Date(user.passwordResetExpires).toISOString() : 'undefined' 
     });
     
-    // Check if token is expired
     if (user.passwordResetExpires && user.passwordResetExpires < Date.now()) {
       console.log('[validateResetToken] Token expired. Expiry:', new Date(user.passwordResetExpires).toISOString());
       return res.status(400).json({
@@ -115,7 +104,6 @@ export const validateResetToken = async (req: Request, res: Response) => {
       });
     }
     
-    // If we reach here, token is valid
     res.status(200).json({
       success: true,
       message: 'Token is valid',
@@ -134,21 +122,18 @@ export const validateResetToken = async (req: Request, res: Response) => {
   }
 };
 
-// Add a function to extend token validity (for admin/debugging use)
 export const extendTokenValidity = async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
-    const { hours = 24 } = req.body; // Default to extending by 24 hours
+    const { hours = 24 } = req.body; 
     
     console.log('[extendTokenValidity] Extending token validity:', token);
     
-    // Hash the token
     const hashedToken = crypto
       .createHash('sha256')
       .update(token)
       .digest('hex');
     
-    // Find user with this token
     const user = await User.findOne({
       passwordResetToken: hashedToken
     });
@@ -160,10 +145,8 @@ export const extendTokenValidity = async (req: Request, res: Response) => {
       });
     }
     
-    // Calculate new expiration time
     const newExpiryTime = Date.now() + (hours * 60 * 60 * 1000);
     
-    // Update expiration time
     user.passwordResetExpires = newExpiryTime;
     await user.save();
     

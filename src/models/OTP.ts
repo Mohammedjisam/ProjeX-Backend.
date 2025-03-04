@@ -1,4 +1,3 @@
-// server/src/models/OTP.ts
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IOTP extends Document {
@@ -19,7 +18,7 @@ const otpSchema = new Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: 600 // OTP expires after 10 minutes
+    expires: 600 
   }
 });
 

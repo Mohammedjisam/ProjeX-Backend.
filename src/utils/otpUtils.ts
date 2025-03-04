@@ -3,23 +3,20 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Configure Nodemailer
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 465, // Use 587 if 465 doesn't work
-  secure: true, // true for port 465, false for port 587
+  port: 465, 
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
 });
 
-// Generate OTP
 export const generateOTP = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
-// Send OTP email
 export const sendOTP = async (email: string, otp: string): Promise<void> => {
   const mailOptions = {
     from: process.env.EMAIL_USER,

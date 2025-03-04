@@ -19,7 +19,7 @@ export interface IProject extends Document {
   createdAt: Date;
   updatedAt: Date;
   addComment(text: string, author: Types.ObjectId | IUser): Promise<void>;
-  getDuration(): number; // Returns duration in days
+  getDuration(): number;
 }
 
 const commentSchema = new Schema(
@@ -110,7 +110,6 @@ const projectSchema = new Schema<IProject>(
   }
 );
 
-// Add virtual field for completion percentage
 projectSchema.virtual('completionPercentage').get(function(this: IProject) {
   const now = new Date();
   if (now < this.startDate) return 0;
@@ -122,19 +121,16 @@ projectSchema.virtual('completionPercentage').get(function(this: IProject) {
   return Math.round((elapsedDuration / totalDuration) * 100);
 });
 
-// Method to add a comment to the project
 projectSchema.methods.addComment = async function(text: string, author: Types.ObjectId | IUser): Promise<void> {
   this.comments.push({ text, author, createdAt: new Date() });
   await this.save();
 };
 
-// Method to get project duration in days
 projectSchema.methods.getDuration = function(): number {
   const durationMs = this.endDate.getTime() - this.startDate.getTime();
   return Math.ceil(durationMs / (1000 * 60 * 60 * 24));
 };
 
-// Index for faster querying
 projectSchema.index({ name: 1 });
 projectSchema.index({ clientName: 1 });
 projectSchema.index({ projectManager: 1 });

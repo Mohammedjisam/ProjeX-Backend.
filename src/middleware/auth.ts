@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 
-// Extend Express Request type
 declare global {
   namespace Express {
     interface Request {
@@ -15,7 +14,6 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
   try {
     let token;
 
-    // Check if token exists in headers
     if (
       req.headers.authorization &&
       req.headers.authorization.startsWith('Bearer')
@@ -30,13 +28,11 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
       });
     }
 
-    // Verify token
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET || 'fallback-secret-key'
     );
 
-    // Check if user exists
     const user = await User.findById((decoded as any).id);
     if (!user) {
       return res.status(401).json({
@@ -45,10 +41,8 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
       });
     }
 
-    // Log authentication for monitoring
     console.log(`User authenticated: ${user._id} (${user.role}) - ${new Date().toISOString()}`);
 
-    // Add user to request
     req.user = user;
     next();
   } catch (error) {

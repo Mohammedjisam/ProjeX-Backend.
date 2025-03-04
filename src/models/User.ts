@@ -64,7 +64,7 @@ userSchema.pre('save', async function (next) {
 });
 
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
-  if (!this.password) return false; // Google users can't compare password
+  if (!this.password) return false; 
   return bcrypt.compare(candidatePassword, this.password);
 };
 
@@ -76,7 +76,6 @@ userSchema.methods.createPasswordResetToken = async function (): Promise<string>
     .update(resetToken)
     .digest('hex');
 
-  // Token expires in 24 hours
   this.passwordResetExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   await this.save({ validateBeforeSave: false });

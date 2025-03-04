@@ -1,11 +1,9 @@
-// src/controllers/companyAdmin/projectManager.controller.ts
 import { Request, Response } from 'express';
 import { User } from '../../models/User';
 import { sendEmail, generatePasswordResetEmailHtml } from '../../utils/email';
 
 export const getProjectManagers = async (req: Request, res: Response) => {
   try {
-    // Log who is accessing project managers data (for audit purposes)
     console.log(`User ${req.user._id} with role ${req.user.role} accessed project managers data`);
     
     const projectManagers = await User.find({ role: 'projectManager' }).select('name email phoneNumber');
@@ -28,7 +26,6 @@ export const getProjectManagers = async (req: Request, res: Response) => {
 
 export const getProjectManagerById = async (req: Request, res: Response) => {
   try {
-    // Log who is accessing project manager details (for audit purposes)
     console.log(`User ${req.user._id} with role ${req.user.role} accessed project manager ID: ${req.params.id}`);
     
     const projectManager = await User.findOne({ 
@@ -61,7 +58,6 @@ export const createProjectManager = async (req: Request, res: Response) => {
   try {
     const { name, email, phoneNumber } = req.body;
     
-    // Check if email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
@@ -70,7 +66,6 @@ export const createProjectManager = async (req: Request, res: Response) => {
       });
     }
     
-    // Create new project manager without password
     const projectManager = await User.create({
       name,
       email,
@@ -78,13 +73,10 @@ export const createProjectManager = async (req: Request, res: Response) => {
       role: 'projectManager'
     });
     
-    // Generate password reset token
     const resetToken = await projectManager.createPasswordResetToken();
     
-    // Create password reset URL
     const resetUrl = `${process.env.FRONTEND_URL}/projectmanager/set-password/${resetToken}`;
     
-    // Send email with password setup link
     try {
       await sendEmail({
         email: projectManager.email,
@@ -104,7 +96,6 @@ export const createProjectManager = async (req: Request, res: Response) => {
         }
       });
     } catch (emailError) {
-      // If email sending fails, delete the user and return error
       await User.findByIdAndDelete(projectManager._id);
       
       console.error('Error sending password setup email:', emailError);
@@ -128,7 +119,6 @@ export const updateProjectManager = async (req: Request, res: Response) => {
   try {
     const { name, email, phoneNumber } = req.body;
     
-    // If email is being changed, check if new email is already in use
     if (email) {
       const existingUser = await User.findOne({ 
         email, 
