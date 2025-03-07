@@ -7,6 +7,7 @@ export interface IUser extends Document {
   email: string;
   phoneNumber?: string;
   password?: string;
+  profileImage?: string;
   role: 'admin' | 'companyAdmin' | 'manager' | 'projectManager' | 'developer';
   isGoogleAccount: boolean;
   passwordResetToken?: string;
@@ -37,6 +38,9 @@ const userSchema = new Schema<IUser>(
     password: {
       type: String,
       minlength: [6, 'Password must be at least 6 characters'],
+    },
+    profileImage: {
+      type: String,
     },
     role: {
       type: String,
