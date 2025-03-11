@@ -9,6 +9,7 @@ import { configureGoogleAuth } from "./config/googleAuth"
 import companyAdminRouter from "../src/routes/companyAdminRouter" 
 import managerRouter from "./routes/manager"
 import projectRouter from "./routes/project"
+import adminRouter from "./routes/admin"
 
 dotenv.config()
 
@@ -17,7 +18,7 @@ const app = express()
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS",'PATCH'],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization", "x-auth-token"],
   }),
@@ -39,6 +40,7 @@ app.use("/api/auth", authRoutes)
 app.use("/api/password", passwordRoutes)
 app.use("/api/companyadmin", companyAdminRouter) 
 app.use("/api/manager", managerRouter) 
+app.use("/api/admin",adminRouter)
 app.use("/api/project",projectRouter)
 
 app.post("/api/auth/debug-token", (req, res) => {
@@ -75,4 +77,3 @@ app.listen(PORT, () => {
 })
 
 export default app
-

@@ -10,6 +10,7 @@ export interface IUser extends Document {
   profileImage?: string;
   role: 'admin' | 'companyAdmin' | 'manager' | 'projectManager' | 'developer';
   isGoogleAccount: boolean;
+  isActive: boolean; // Added isActive field
   passwordResetToken?: string;
   passwordResetExpires?: Date;
   createdAt: Date;
@@ -50,6 +51,10 @@ const userSchema = new Schema<IUser>(
     isGoogleAccount: {
       type: Boolean,
       default: false,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
     },
     passwordResetToken: String,
     passwordResetExpires: Date,
