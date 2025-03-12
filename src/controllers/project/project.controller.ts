@@ -57,6 +57,118 @@ class ProjectController {
     }
   };
 
+  public getProjectsByProjectManager = async (req: Request, res: Response): Promise<void> => {
+    try {
+      // Try to get managerId from params first, or fallback to request body
+      console.log("heeeeeeeeeel")
+      const managerId = req.params.managerId || req.body.managerId;
+      console.log("_________",managerId)
+      
+      if (!managerId) {
+        res.status(400).json({
+          success: false,
+          message: 'Project manager ID is required'
+        });
+        return;
+      }
+      
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const skip = (page - 1) * limit;
+      
+      const { status, clientName } = req.query;
+      
+      if (!mongoose.Types.ObjectId.isValid(managerId)) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid project manager ID format'
+        });
+        return;
+      }
+  
+      // Build filter object
+      const filter: any = { projectManager: managerId };
+      
+      if (status) filter.status = status;
+      if (clientName) filter.clientName = new RegExp(clientName as string, 'i');
+  
+      const total = await Project.countDocuments(filter);
+      
+      const projects = await Project.find(filter)
+        .populate('projectManager', 'name email role')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+      
+      res.status(200).json({
+        success: true,
+        count: projects.length,
+        total,
+        pagination: {
+          current: page,
+          pages: Math.ceil(total / limit),
+          hasNext: skip + projects.length < total,
+          hasPrev: page > 1
+        },
+        data: projects
+      });
+    } catch (error) {
+      console.error('Error fetching projects by manager:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error while fetching projects'
+      });
+    }
+  };
+
+  public getProjectManagerProjectById = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { managerId, projectId } = req.params;
+      
+      if (!mongoose.Types.ObjectId.isValid(managerId)) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid project manager ID format'
+        });
+        return;
+      }
+  
+      if (!mongoose.Types.ObjectId.isValid(projectId)) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid project ID format'
+        });
+        return;
+      }
+  
+      // Find the project that belongs to this manager
+      const project = await Project.findOne({ 
+        _id: projectId,
+        projectManager: managerId 
+      })
+      .populate('projectManager', 'name email role')
+      .populate('comments.author', 'name role');
+  
+      if (!project) {
+        res.status(404).json({
+          success: false,
+          message: 'Project not found or does not belong to this project manager'
+        });
+        return;
+      }
+  
+      res.status(200).json({
+        success: true,
+        data: project
+      });
+    } catch (error) {
+      console.error('Error fetching project manager project details:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error while fetching project details'
+      });
+    }
+  };
   
   public getProjectById = async (req: Request, res: Response): Promise<void> => {
     try {
