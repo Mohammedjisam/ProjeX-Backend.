@@ -112,6 +112,10 @@ const projectSchema = new Schema<IProject>(
 
 projectSchema.virtual('completionPercentage').get(function(this: IProject) {
   const now = new Date();
+  
+  // Check if dates are defined before using them
+  if (!this.startDate || !this.endDate) return 0;
+  
   if (now < this.startDate) return 0;
   if (now > this.endDate) return 100;
   
