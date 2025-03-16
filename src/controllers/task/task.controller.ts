@@ -116,6 +116,116 @@ class TaskController {
     }
   };
 
+  public getTasksByDeveloperId = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { developerId } = req.body;
+      
+      if (!developerId) {
+        res.status(400).json({
+          success: false,
+          message: 'Developer ID is required'
+        });
+        return;
+      }
+      
+      if (!mongoose.Types.ObjectId.isValid(developerId)) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid developer ID format'
+        });
+        return;
+      }
+  
+      // Verify user exists and is a developer
+      const developer = await User.findById(developerId);
+      if (!developer) {
+        res.status(404).json({
+          success: false,
+          message: 'Developer not found'
+        });
+        return;
+      }
+      
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const skip = (page - 1) * limit;
+      
+      const { status, priority, projectId } = req.query;
+      
+      const filter: any = { assignee: developerId };
+      
+      if (status) filter.status = status;
+      if (priority) filter.priority = priority;
+      if (projectId && mongoose.Types.ObjectId.isValid(projectId as string)) {
+        filter.project = projectId;
+      }
+  
+      const total = await Task.countDocuments(filter);
+      
+      const tasks = await Task.find(filter)
+        .populate('project', 'name clientName status')
+        .populate('createdBy', 'name email')
+        .sort({ dueDate: 1 })
+        .skip(skip)
+        .limit(limit);
+      
+      // Get task statistics
+      const completedTasks = await Task.countDocuments({
+        ...filter,
+        status: 'completed'
+      });
+      
+      const inProgressTasks = await Task.countDocuments({
+        ...filter,
+        status: 'in-progress'
+      });
+      
+      const pendingTasks = await Task.countDocuments({
+        ...filter,
+        status: 'pending'
+      });
+      
+      const onHoldTasks = await Task.countDocuments({
+        ...filter,
+        status: 'on-hold'
+      });
+      
+      // Get overdue tasks
+      const today = new Date();
+      const overdueTasks = await Task.countDocuments({
+        ...filter,
+        dueDate: { $lt: today },
+        status: { $ne: 'completed' }
+      });
+      
+      res.status(200).json({
+        success: true,
+        count: tasks.length,
+        total,
+        pagination: {
+          current: page,
+          pages: Math.ceil(total / limit),
+          hasNext: skip + tasks.length < total,
+          hasPrev: page > 1
+        },
+        statistics: {
+          completed: completedTasks,
+          inProgress: inProgressTasks,
+          pending: pendingTasks,
+          onHold: onHoldTasks,
+          overdue: overdueTasks,
+          total
+        },
+        data: tasks
+      });
+    } catch (error) {
+      console.error('Error fetching tasks by developer ID:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error while fetching developer tasks'
+      });
+    }
+  };
 
   public createTask = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -264,6 +374,75 @@ class TaskController {
       res.status(500).json({
         success: false,
         message: 'Server error while creating task'
+      });
+    }
+  };
+
+  public updateTaskStatus = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { taskId, status } = req.body;
+      
+      // Validate task ID
+      if (!taskId) {
+        res.status(400).json({
+          success: false,
+          message: 'Task ID is required'
+        });
+        return;
+      }
+      
+      if (!mongoose.Types.ObjectId.isValid(taskId)) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid task ID format'
+        });
+        return;
+      }
+  
+      // Validate status value
+      const validStatuses = ['pending', 'in-progress', 'completed', 'on-hold'];
+      if (!status || !validStatuses.includes(status)) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid status value. Must be one of: pending, in-progress, completed, on-hold'
+        });
+        return;
+      }
+  
+      // Find task and update its status
+      const task = await Task.findById(taskId);
+      
+      if (!task) {
+        res.status(404).json({
+          success: false,
+          message: 'Task not found'
+        });
+        return;
+      }
+  
+      // Track the previous status for the response
+      const previousStatus = task.status;
+      
+      // Update the status
+      task.status = status;
+      const updatedTask = await task.save();
+      
+      // Populate references for the response
+      await updatedTask
+        .populate('project', 'name clientName')
+        .populate('assignee', 'name email role')
+        .populate('createdBy', 'name email');
+      
+      res.status(200).json({
+        success: true,
+        message: `Task status updated from '${previousStatus}' to '${status}'`,
+        data: updatedTask
+      });
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error while updating task status'
       });
     }
   };

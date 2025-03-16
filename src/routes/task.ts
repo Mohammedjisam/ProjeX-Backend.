@@ -17,6 +17,9 @@ taskRoutes.get("/project/:projectId", protect, TaskController.getTasksByProject)
 // Updated route for getting tasks by assignee
 taskRoutes.post("/assignee", protect, TaskController.getTasksByAssignee);
 
+// Get tasks by developer ID
+taskRoutes.post("/developer", protect, TaskController.getTasksByDeveloperId);
+
 // Get a single task
 taskRoutes.get("/:id", protect, TaskController.getTaskById);
 
@@ -29,6 +32,9 @@ taskRoutes.put("/:id", protect, TaskController.updateTask);
 
 // Delete a task
 taskRoutes.delete("/:id", protect, TaskController.deleteTask);
+
+taskRoutes.post("/updatestatus", protect, TaskController.updateTaskStatus);
+
 
 
 
