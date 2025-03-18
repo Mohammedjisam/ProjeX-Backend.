@@ -1,13 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
-export interface ICompany extends Document {
-  name: string;
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  admin: mongoose.Types.ObjectId;
+export interface IPayment extends Document {
+  companyAdmin: mongoose.Types.ObjectId;
   planId: string;
   stripeCustomerId: string;
   stripeSubscriptionId: string;
@@ -21,39 +15,9 @@ export interface ICompany extends Document {
   updatedAt: Date;
 }
 
-const companySchema = new Schema(
+const paymentSchema = new Schema(
   {
-    name: {
-      type: String,
-      required: [true, 'Company name is required'],
-      trim: true,
-    },
-    address: {
-      type: String,
-      required: [true, 'Address is required'],
-      trim: true,
-    },
-    city: {
-      type: String,
-      required: [true, 'City is required'],
-      trim: true,
-    },
-    state: {
-      type: String,
-      required: [true, 'State is required'],
-      trim: true,
-    },
-    zip: {
-      type: String,
-      required: [true, 'ZIP code is required'],
-      trim: true,
-    },
-    country: {
-      type: String,
-      required: [true, 'Country is required'],
-      trim: true,
-    },
-    admin: {
+    companyAdmin: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'Company admin is required'],
@@ -102,8 +66,7 @@ const companySchema = new Schema(
   }
 );
 
-// Set the plan limits based on the selected plan
-companySchema.pre('save', function(next) {
+paymentSchema.pre('save', function(next) {
   if (this.isNew || this.isModified('planId')) {
     switch (this.planId) {
       case 'basic':
@@ -130,4 +93,4 @@ companySchema.pre('save', function(next) {
   next();
 });
 
-export const Company = mongoose.model<ICompany>('Company', companySchema);
+export const Payment = mongoose.model<IPayment>('Payment', paymentSchema);

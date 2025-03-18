@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
 import { User } from '../../models/User';
-import { Company } from '../../models/Company';
+import { Payment } from '../../models/Payment';
 
 // Initialize Stripe with your secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
@@ -55,11 +55,11 @@ export const createPaymentIntent = async (req: Request, res: Response) => {
 
 export const subscribe = async (req: Request, res: Response) => {
   try {
-    const { planId, companyData, userId } = req.body;
+    const { planId, userId } = req.body;
 
     // Validate the input
-    if (!planId || !companyData || !userId) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!planId || !userId) {
+      return res.status(400).json({ error: 'Missing required fields: planId and userId are required' });
     }
 
     // Get the user
@@ -128,15 +128,9 @@ export const subscribe = async (req: Request, res: Response) => {
         break;
     }
 
-    // Create temporary company data object
-    const companyData2 = {
-      name: companyData.companyName,
-      address: companyData.address,
-      city: companyData.city,
-      state: companyData.state,
-      zip: companyData.zip,
-      country: companyData.country,
-      admin: userId,
+    // Create payment data object with necessary information
+    const paymentData = {
+      companyAdmin: userId,
       planId,
       stripeCustomerId: customer.id,
       maxBranches,
@@ -144,11 +138,11 @@ export const subscribe = async (req: Request, res: Response) => {
       maxMeetingParticipants
     };
 
-    // Return the setup intent and company data without creating the company yet
+    // Return the setup intent and payment data
     res.status(200).json({
       success: true,
       setupIntent: setupIntent.client_secret,
-      companyData: companyData2
+      paymentData
     });
   } catch (error) {
     console.error('Error creating subscription:', error);
@@ -156,11 +150,11 @@ export const subscribe = async (req: Request, res: Response) => {
   }
 };
 
-// New endpoint to complete subscription after payment method is set up
+// Modified completeSubscription function to match client expectations
 export const completeSubscription = async (req: Request, res: Response) => {
   try {
-    const { companyData, setupIntentId } = req.body;
-    const userId = req.user.id;
+    const { paymentData, setupIntentId } = req.body;
+    const userId = paymentData.companyAdmin; // Extract userId from paymentData
 
     // Verify user exists
     const user = await User.findById(userId);
@@ -177,7 +171,7 @@ export const completeSubscription = async (req: Request, res: Response) => {
     const paymentMethodId = setupIntent.payment_method as string;
 
     // Set it as the default payment method for the customer
-    await stripe.customers.update(companyData.stripeCustomerId, {
+    await stripe.customers.update(paymentData.stripeCustomerId, {
       invoice_settings: {
         default_payment_method: paymentMethodId,
       },
@@ -185,49 +179,43 @@ export const completeSubscription = async (req: Request, res: Response) => {
 
     // Create the subscription
     const subscription = await stripe.subscriptions.create({
-      customer: companyData.stripeCustomerId,
+      customer: paymentData.stripeCustomerId,
       items: [
         {
-          price: PLAN_PRICE_MAP[companyData.planId],
+          price: PLAN_PRICE_MAP[paymentData.planId],
         },
       ],
       default_payment_method: paymentMethodId,
     });
 
-    // NOW create the company with all required fields
-    const company = new Company({
-      name: companyData.name,
-      address: companyData.address,
-      city: companyData.city,
-      state: companyData.state,
-      zip: companyData.zip,
-      country: companyData.country,
-      admin: userId,
-      planId: companyData.planId,
-      stripeCustomerId: companyData.stripeCustomerId,
+    // Create the payment with all required fields
+    const payment = new Payment({
+      companyAdmin: userId,
+      planId: paymentData.planId,
+      stripeCustomerId: paymentData.stripeCustomerId,
       stripeSubscriptionId: subscription.id,
       paymentMethodId: paymentMethodId,
       subscriptionStatus: subscription.status,
       currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      maxBranches: companyData.maxBranches,
-      maxUsers: companyData.maxUsers,
-      maxMeetingParticipants: companyData.maxMeetingParticipants
+      maxBranches: paymentData.maxBranches,
+      maxUsers: paymentData.maxUsers,
+      maxMeetingParticipants: paymentData.maxMeetingParticipants
     });
 
-    await company.save();
+    await payment.save();
 
     // Update user role to companyAdmin if not already
     if (user.role !== 'companyAdmin') {
       await User.findByIdAndUpdate(userId, { 
         role: 'companyAdmin',
-        companyId: company._id 
+        companyId: payment._id 
       });
     }
 
     res.status(200).json({
       success: true,
       subscription,
-      company,
+      payment,
     });
   } catch (error) {
     console.error('Error completing subscription:', error);
@@ -282,7 +270,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
 // Helper function to update subscription status
 async function updateSubscriptionStatus(subscription) {
   try {
-    await Company.findOneAndUpdate(
+    await Payment.findOneAndUpdate(
       { stripeSubscriptionId: subscription.id },
       {
         subscriptionStatus: subscription.status,
@@ -310,10 +298,10 @@ async function updateSubscriptionFromInvoice(invoice) {
 async function handleFailedPayment(invoice) {
   try {
     if (invoice.subscription) {
-      const company = await Company.findOne({ stripeSubscriptionId: invoice.subscription });
-      if (company) {
-        company.subscriptionStatus = 'past_due';
-        await company.save();
+      const payment = await Payment.findOne({ stripeSubscriptionId: invoice.subscription });
+      if (payment) {
+        payment.subscriptionStatus = 'past_due';
+        await payment.save();
 
         // You can add notification logic here to inform the company admin
       }
@@ -329,23 +317,23 @@ export const cancelSubscription = async (req: Request, res: Response) => {
     const { companyId } = req.params;
     const userId = req.user.id;
 
-    // Find the company
-    const company = await Company.findById(companyId);
-    if (!company) {
-      return res.status(404).json({ error: 'Company not found' });
+    // Find the payment
+    const payment = await Payment.findById(companyId);
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
     }
 
     // Check if user is authorized (admin or company admin)
-    if (company.admin.toString() !== userId && req.user.role !== 'admin') {
+    if (payment.companyAdmin.toString() !== userId && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Not authorized to cancel this subscription' });
     }
 
     // Cancel the subscription in Stripe
-    await stripe.subscriptions.cancel(company.stripeSubscriptionId);
+    await stripe.subscriptions.cancel(payment.stripeSubscriptionId);
 
-    // Update the company record
-    company.subscriptionStatus = 'canceled';
-    await company.save();
+    // Update the payment record
+    payment.subscriptionStatus = 'canceled';
+    await payment.save();
 
     res.status(200).json({
       success: true,
@@ -369,27 +357,27 @@ export const updateSubscription = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid plan selected' });
     }
 
-    // Find the company
-    const company = await Company.findById(companyId);
-    if (!company) {
-      return res.status(404).json({ error: 'Company not found' });
+    // Find the payment
+    const payment = await Payment.findById(companyId);
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
     }
 
     // Check if user is authorized (admin or company admin)
-    if (company.admin.toString() !== userId && req.user.role !== 'admin') {
+    if (payment.companyAdmin.toString() !== userId && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Not authorized to update this subscription' });
     }
 
     // Check if the plan is actually changing
-    if (company.planId === newPlanId) {
+    if (payment.planId === newPlanId) {
       return res.status(400).json({ error: 'Company is already on this plan' });
     }
 
     // Get the subscription from Stripe
-    const subscription = await stripe.subscriptions.retrieve(company.stripeSubscriptionId);
+    const subscription = await stripe.subscriptions.retrieve(payment.stripeSubscriptionId);
 
     // Update the subscription items
-    await stripe.subscriptions.update(company.stripeSubscriptionId, {
+    await stripe.subscriptions.update(payment.stripeSubscriptionId, {
       items: [
         {
           id: subscription.items.data[0].id,
@@ -399,14 +387,14 @@ export const updateSubscription = async (req: Request, res: Response) => {
       proration_behavior: 'create_prorations',
     });
 
-    // Update the company record
-    company.planId = newPlanId;
-    await company.save(); // This will trigger the pre-save hook to update plan limits
+    // Update the payment record
+    payment.planId = newPlanId;
+    await payment.save(); // This will trigger the pre-save hook to update plan limits
 
     res.status(200).json({
       success: true,
       message: 'Subscription updated successfully',
-      company,
+      payment,
     });
   } catch (error) {
     console.error('Error updating subscription:', error);
@@ -420,14 +408,14 @@ export const getSubscriptionDetails = async (req: Request, res: Response) => {
     const { companyId } = req.params;
     const userId = req.user.id;
 
-    // Find the company
-    const company = await Company.findById(companyId);
-    if (!company) {
-      return res.status(404).json({ error: 'Company not found' });
+    // Find the payment
+    const payment = await Payment.findById(companyId);
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
     }
 
     // Check if user is authorized (admin or company admin or company member)
-    const isCompanyAdmin = company.admin.toString() === userId;
+    const isCompanyAdmin = payment.companyAdmin.toString() === userId;
     const isSystemAdmin = req.user.role === 'admin';
     
     if (!isCompanyAdmin && !isSystemAdmin) {
@@ -439,17 +427,17 @@ export const getSubscriptionDetails = async (req: Request, res: Response) => {
     }
 
     // Get the subscription from Stripe for the most up-to-date information
-    const subscription = await stripe.subscriptions.retrieve(company.stripeSubscriptionId);
+    const subscription = await stripe.subscriptions.retrieve(payment.stripeSubscriptionId);
 
     // Get the payment method details
-    const paymentMethod = await stripe.paymentMethods.retrieve(company.paymentMethodId);
+    const paymentMethod = await stripe.paymentMethods.retrieve(payment.paymentMethodId);
 
     res.status(200).json({
       success: true,
       subscription: {
         status: subscription.status,
         currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-        plan: company.planId,
+        plan: payment.planId,
         paymentMethod: {
           brand: paymentMethod.card.brand,
           last4: paymentMethod.card.last4,
@@ -457,9 +445,9 @@ export const getSubscriptionDetails = async (req: Request, res: Response) => {
           expYear: paymentMethod.card.exp_year,
         },
         limits: {
-          maxBranches: company.maxBranches,
-          maxUsers: company.maxUsers,
-          maxMeetingParticipants: company.maxMeetingParticipants,
+          maxBranches: payment.maxBranches,
+          maxUsers: payment.maxUsers,
+          maxMeetingParticipants: payment.maxMeetingParticipants,
         },
       },
     });
@@ -476,14 +464,14 @@ export const updatePaymentMethod = async (req: Request, res: Response) => {
     const { paymentMethodId } = req.body;
     const userId = req.user.id;
 
-    // Find the company
-    const company = await Company.findById(companyId);
-    if (!company) {
-      return res.status(404).json({ error: 'Company not found' });
+    // Find the payment
+    const payment = await Payment.findById(companyId);
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
     }
 
     // Check if user is authorized (admin or company admin)
-    if (company.admin.toString() !== userId && req.user.role !== 'admin') {
+    if (payment.companyAdmin.toString() !== userId && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Not authorized to update payment method' });
     }
 
@@ -505,9 +493,9 @@ export const updatePaymentMethod = async (req: Request, res: Response) => {
       },
     });
 
-    // Update the company record
-    company.paymentMethodId = paymentMethodId;
-    await company.save();
+    // Update the payment record
+    payment.paymentMethodId = paymentMethodId;
+    await payment.save();
 
     res.status(200).json({
       success: true,
