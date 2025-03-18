@@ -24,7 +24,7 @@ paymentRouter.post('/subscribe', protect, subscribe);
 paymentRouter.post('/complete-subscription', protect, completeSubscription); // Add this new route
 
 // Company subscription management routes (require company admin access)
-paymentRouter.get('/subscription/:companyId', protect, getSubscriptionDetails);
+paymentRouter.get('/subscription', protect, getSubscriptionDetails);
 paymentRouter.post('/subscription/:companyId/cancel', protect, cancelSubscription);
 paymentRouter.post('/subscription/:companyId/update', protect, updateSubscription);
 paymentRouter.post('/subscription/:companyId/payment-method', protect, updatePaymentMethod);

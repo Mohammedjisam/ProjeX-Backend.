@@ -403,13 +403,16 @@ export const updateSubscription = async (req: Request, res: Response) => {
 };
 
 // Get subscription details
+// Fix for the API route in payment.controller.ts
 export const getSubscriptionDetails = async (req: Request, res: Response) => {
   try {
-    const { companyId } = req.params;
     const userId = req.user.id;
 
-    // Find the payment
-    const payment = await Payment.findById(companyId);
+    // Find the payment associated with the user
+    // Since we're not getting companyId from params anymore, we need to find it differently
+    // Assuming each user belongs to only one company/payment
+    const payment = await Payment.findOne({ companyAdmin: userId });
+    
     if (!payment) {
       return res.status(404).json({ error: 'Payment not found' });
     }
@@ -420,6 +423,7 @@ export const getSubscriptionDetails = async (req: Request, res: Response) => {
     
     if (!isCompanyAdmin && !isSystemAdmin) {
       // Check if user is a member of the company
+      const companyId = payment._id; // Assuming payment._id is the company ID
       const isMember = await User.exists({ _id: userId, companyId });
       if (!isMember) {
         return res.status(403).json({ error: 'Not authorized to view this subscription' });
