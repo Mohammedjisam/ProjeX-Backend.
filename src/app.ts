@@ -12,7 +12,7 @@ import projectRouter from "./routes/project"
 import adminRouter from "./routes/admin"
 import taskRoutes from "./routes/task"
 import paymentRouter from "./routes/paymentRoutes"
-import tenantRouter from "./routes/tenantRoutes"
+import companyRouter from "./routes/companyRoutes"
 
 dotenv.config()
 
@@ -47,7 +47,7 @@ app.use("/api/admin",adminRouter)
 app.use("/api/project",projectRouter)
 app.use("/api/task",taskRoutes)
 app.use("/api/payment",paymentRouter)
-app.use('/api/tenant',tenantRouter)
+app.use('/api/company',companyRouter)
 
 app.post("/api/auth/debug-token", (req, res) => {
   console.log("Received token data:", req.body)

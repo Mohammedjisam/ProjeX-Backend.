@@ -13,8 +13,9 @@ export interface ITenant extends Document {
     country: string;
     postalCode: string;
   };
-  payment: mongoose.Types.ObjectId; // Reference to the Company schema
+  payment: mongoose.Types.ObjectId; // Reference to the Payment schema
   companyAdmin: mongoose.Types.ObjectId; // Reference to the company admin
+  adminVerification: boolean; // Added adminVerification field
   createdAt: Date;
   updatedAt: Date;
 }
@@ -76,12 +77,16 @@ const TenantSchema: Schema = new Schema(
     payment: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Payment',
-      required: [true, 'Company reference is required']
+      required: [true, 'Payment reference is required']
     },
     companyAdmin: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'Company admin reference is required']
+    },
+    adminVerification: {
+      type: Boolean,
+      default: false
     }
   },
   {
