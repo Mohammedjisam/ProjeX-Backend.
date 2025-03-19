@@ -11,6 +11,7 @@ export interface IProject extends Document {
   projectManager: Types.ObjectId | IUser;
   goal: string;
   status: 'planned' | 'in-progress' | 'completed' | 'on-hold';
+  companyAdminIsVerified:boolean;
   comments: Array<{
     text: string;
     author: Types.ObjectId | IUser;
@@ -78,6 +79,10 @@ const projectSchema = new Schema<IProject>(
     endDate: {
       type: Date,
       required: [true, 'End date is required'],
+    },
+    companyAdminIsVerified: {
+      type: Boolean,
+      default: false,
     },
     projectManager: {
       type: Schema.Types.ObjectId,

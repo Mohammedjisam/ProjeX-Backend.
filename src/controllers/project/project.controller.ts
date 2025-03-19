@@ -15,19 +15,24 @@ class ProjectController {
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
       
-      const { status, clientName, startDateFrom, startDateTo } = req.query;
+      const { status, clientName, startDateFrom, startDateTo, verified } = req.query; // Add verified query param
       
       const filter: any = {};
       
       if (status) filter.status = status;
-      if (clientName) filter.clientName = new RegExp(clientName as string, 'i'); // Case-insensitive search
+      if (clientName) filter.clientName = new RegExp(clientName as string, 'i');
+      
+      // Add filter for verification status if provided
+      if (verified !== undefined) {
+        filter.companyAdminIsVerified = verified === 'true';
+      }
       
       if (startDateFrom || startDateTo) {
         filter.startDate = {};
         if (startDateFrom) filter.startDate.$gte = new Date(startDateFrom as string);
         if (startDateTo) filter.startDate.$lte = new Date(startDateTo as string);
       }
-
+  
       const total = await Project.countDocuments(filter);
       
       const projects = await Project.find(filter)
@@ -173,7 +178,7 @@ class ProjectController {
   public getProjectById = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      
+      console.log("project id",id)
       if (!mongoose.Types.ObjectId.isValid(id)) {
         res.status(400).json({
           success: false,
@@ -219,8 +224,9 @@ class ProjectController {
         projectManager,
         goal,
         status = 'planned'
+        // Remove companyAdminIsVerified from destructuring as it should be set explicitly
       } = req.body;
-
+  
       const errors: ErrorResponse[] = [];
       
       if (!name) errors.push({ field: 'name', message: 'Project name is required' });
@@ -231,7 +237,7 @@ class ProjectController {
       if (!endDate) errors.push({ field: 'endDate', message: 'End date is required' });
       if (!projectManager) errors.push({ field: 'projectManager', message: 'Project manager is required' });
       if (!goal) errors.push({ field: 'goal', message: 'Project goal is required' });
-
+  
       if (errors.length > 0) {
         res.status(400).json({
           success: false,
@@ -239,7 +245,7 @@ class ProjectController {
         });
         return;
       }
-
+  
       const startDateObj = new Date(startDate);
       const endDateObj = new Date(endDate);
       
@@ -250,7 +256,7 @@ class ProjectController {
         });
         return;
       }
-
+  
       if (mongoose.Types.ObjectId.isValid(projectManager)) {
         const manager = await User.findById(projectManager);
         
@@ -277,7 +283,7 @@ class ProjectController {
         });
         return;
       }
-
+  
       const project = await Project.create({
         name,
         description,
@@ -287,9 +293,10 @@ class ProjectController {
         endDate: endDateObj,
         projectManager,
         goal,
-        status
+        status,
+        companyAdminIsVerified: false ,
       });
-
+  
       res.status(201).json({
         success: true,
         message: 'Project created successfully',
@@ -317,7 +324,6 @@ class ProjectController {
       });
     }
   };
-
 
   public updateProject = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -478,6 +484,57 @@ class ProjectController {
     }
   };
 
+  public toggleVerificationStatus = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid project ID format'
+        });
+        return;
+      }
+      
+      // Get current user from req.user (assuming middleware adds it)
+      const currentUser = req.user;
+      
+      // Check if user is a company admin
+      if (currentUser.role !== 'companyAdmin' && currentUser.role !== 'admin') {
+        res.status(403).json({
+          success: false,
+          message: 'Only company admins or admins can verify projects'
+        });
+        return;
+      }
+      
+      const project = await Project.findById(id);
+      
+      if (!project) {
+        res.status(404).json({
+          success: false,
+          message: 'Project not found'
+        });
+        return;
+      }
+      
+      // Toggle verification status
+      project.companyAdminIsVerified = !project.companyAdminIsVerified;
+      await project.save();
+      
+      res.status(200).json({
+        success: true,
+        message: `Project ${project.companyAdminIsVerified ? 'verified' : 'unverified'} successfully`,
+        data: project
+      });
+    } catch (error) {
+      console.error('Error toggling project verification:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error while updating project verification status'
+      });
+    }
+  };
 
   public addComment = async (req: Request, res: Response): Promise<void> => {
     try {
