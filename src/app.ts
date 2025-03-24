@@ -11,7 +11,6 @@ import managerRouter from "./routes/manager"
 import projectRouter from "./routes/project"
 import adminRouter from "./routes/admin"
 import taskRoutes from "./routes/task"
-import paymentRouter from "./routes/paymentRoutes"
 import companyRouter from "./routes/companyRoutes"
 
 dotenv.config()
@@ -46,7 +45,6 @@ app.use("/api/manager", managerRouter)
 app.use("/api/admin",adminRouter)
 app.use("/api/project",projectRouter)
 app.use("/api/task",taskRoutes)
-app.use("/api/payment",paymentRouter)
 app.use('/api/company',companyRouter)
 
 app.post("/api/auth/debug-token", (req, res) => {

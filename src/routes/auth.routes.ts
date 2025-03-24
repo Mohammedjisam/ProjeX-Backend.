@@ -6,8 +6,8 @@ import {
   login, 
   googleAuth, 
   googleCallback,verifyGoogleToken   
-} from '../controllers/auth.controller';
-import { updateProfile,getProfile } from '../controllers/profileController';
+} from '../controllers/auth/auth.controller';
+import { updateProfile,getProfile } from '../controllers/auth/profileController';
 import { protect } from '../middleware/auth';
 
 const router = express.Router();

@@ -1,7 +1,7 @@
 import express from "express";
 import passport from "passport";
 import jwt from "jsonwebtoken";
-import { googleAuth } from '../controllers/auth.controller';
+import { googleAuth } from '../controllers/auth/auth.controller';
 
 const router = express.Router();
 

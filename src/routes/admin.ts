@@ -1,22 +1,15 @@
 import express from "express"
 const adminRouter = express.Router()
 import {
-  // Company Admin Controllers
   getCompanyAdmins,
   deleteCompanyAdmin,
   toggleCompanyAdminStatus,
-  
-  // Manager Controllers
   getManagers,
   deleteManager,
   toggleManagerStatus,
-  
-  // Project Manager Controllers
   getProjectManagers,
   deleteProjectManager,
   toggleProjectManagerStatus,
-  
-  // Developer Controllers
   getDevelopers,
   deleteDeveloper,
   toggleDeveloperStatus

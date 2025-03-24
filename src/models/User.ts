@@ -10,7 +10,7 @@ export interface IUser extends Document {
   profileImage?: string;
   role: 'admin' | 'companyAdmin' | 'manager' | 'projectManager' | 'developer';
   isGoogleAccount: boolean;
-  isActive: boolean; // Added isActive field
+  isActive: boolean; 
   passwordResetToken?: string;
   passwordResetExpires?: Date;
   createdAt: Date;

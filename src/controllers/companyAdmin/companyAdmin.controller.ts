@@ -6,16 +6,13 @@ import mongoose from 'mongoose';
 
 export const getDashboardData = async (req: Request, res: Response) => {
   try {
-    // Fetch managers
     const managers = await User.find({ role: 'manager' })
       .select('_id name email phoneNumber location');
       
-    // Fetch projects
     const projects = await Project.find()
       .populate('projectManager', 'name email role')
       .select('name clientName status startDate endDate projectManager');
     
-    // Calculate project count per manager
     const managerProjectCounts = {};
     
     projects.forEach(project => {

@@ -1,7 +1,7 @@
 import { Request, Response  } from 'express';
-import { User } from '../models/User';
-import { OTP } from '../models/OTP';
-import { generateOTP, sendOTP } from '../utils/otpUtils';
+import { User } from '../../models/User';
+import { OTP } from '../../models/OTP';
+import { generateOTP, sendOTP } from '../../utils/otpUtils';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import passport from 'passport';
@@ -15,8 +15,8 @@ type UserRole = typeof VALID_ROLES[number];
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password, role } = req.body; 
-    console.log("Extracted role:", role);
-
+    
+    // Input validation
     if (!VALID_ROLES.includes(role as UserRole)) {
       return res.status(400).json({
         success: false,
@@ -31,10 +31,10 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`Attempting login for ${role}:`, email);
-
+    // Find any user with this email first
     const existingUser = await User.findOne({ email });
     
+    // Check if email exists with different role
     if (existingUser && existingUser.role !== role) {
       return res.status(403).json({
         success: false,
@@ -42,8 +42,8 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
+    // Find user with exact email and role
     const user = await User.findOne({ email, role });
-
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -51,6 +51,23 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
+    // Check for Google-authenticated users
+    if (user.isGoogleAccount) {
+      return res.status(401).json({
+        success: false,
+        message: 'Please login using Google authentication',
+      });
+    }
+
+    // Validate password exists
+    if (!user.password) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials - no password set for this user',
+      });
+    }
+
+    // Compare passwords
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -59,12 +76,14 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
+    // Generate JWT token
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET || 'fallback-secret-key',
       { expiresIn: '30d' }
     );
 
+    // Successful login response
     res.status(200).json({
       success: true,
       message: `Login successful as ${role}`,
@@ -77,7 +96,7 @@ export const login = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error("Login Error:", error.message);
+    console.error("Login Error:", error);
     res.status(500).json({
       success: false,
       message: 'An error occurred during login',
@@ -85,7 +104,6 @@ export const login = async (req: Request, res: Response) => {
     });
   }
 };
-
 const pendingRegistrations = new Map();
 
 export const initiateSignup = async (req: Request, res: Response) => {

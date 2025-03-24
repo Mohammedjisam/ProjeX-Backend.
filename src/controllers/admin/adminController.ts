@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { User } from '../../models/User';
 
-// Get all company admins
 export const getCompanyAdmins = async (req: Request, res: Response) => {
   try {
     console.log(`User ${req.user._id} with role ${req.user.role} accessed company admins data`);
