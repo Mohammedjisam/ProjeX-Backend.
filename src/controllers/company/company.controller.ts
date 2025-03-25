@@ -75,62 +75,77 @@ export default class CompanyController {
         return;
       }
 
-         // Create or retrieve Stripe customer
-         let customer;
-         if (user.stripeCustomerId) {
-             customer = await stripe.customers.retrieve(user.stripeCustomerId);
-             if ((customer as any).deleted) {
-                 customer = await stripe.customers.create({
-                     email: user.email,
-                     name: user.name,
-                     metadata: { userId: user._id.toString() },
-                 });
-                 await User.findByIdAndUpdate(userId, { stripeCustomerId: customer.id });
-             }
-         } else {
-             customer = await stripe.customers.create({
-                 email: user.email,
-                 name: user.name,
-                 metadata: { userId: user._id.toString() },
-             });
-             await User.findByIdAndUpdate(userId, { stripeCustomerId: customer.id });
-         }
- 
-         // Create payment intent
-         const paymentIntent = await stripe.paymentIntents.create({
-          amount: PLAN_AMOUNT_MAP[planId],
-          currency: 'usd',
-          customer: customer.id,
-          setup_future_usage: 'off_session', // Add this line
-          metadata: {
-            planId,
-            userId: user._id.toString()
-          },
-          payment_method_types: ['card']
+      // Create or retrieve Stripe customer with proper typing
+      let customer: Stripe.Customer;
+      if (user.stripeCustomerId) {
+        try {
+          customer = await stripe.customers.retrieve(user.stripeCustomerId) as Stripe.Customer;
+          if (customer.deleted) {
+            customer = await stripe.customers.create({
+              email: user.email,
+              name: user.name,
+              metadata: { userId: user._id.toString() },
+            });
+            await User.findByIdAndUpdate(userId, { stripeCustomerId: customer.id });
+          }
+        } catch (error) {
+          // If retrieval fails, create new customer
+          customer = await stripe.customers.create({
+            email: user.email,
+            name: user.name,
+            metadata: { userId: user._id.toString() },
+          });
+          await User.findByIdAndUpdate(userId, { stripeCustomerId: customer.id });
+        }
+      } else {
+        customer = await stripe.customers.create({
+          email: user.email,
+          name: user.name,
+          metadata: { userId: user._id.toString() },
         });
- 
-         // Prepare company data WITH stripeCustomerId
-         const companyData = {
-             companyName,
-             companyType,
-             companyDomain,
-             phoneNumber,
-             address: { buildingNo, street, city, state, country, postalCode },
-             companyAdmin: userId,
-             adminVerification: false,
-             planId,
-             stripeCustomerId: customer.id, // THIS IS CRUCIAL
-             maxBranches: planId === 'basic' ? 1 : planId === 'pro' ? 3 : 5,
-             maxUsers: planId === 'basic' ? 10 : planId === 'pro' ? 30 : 50,
-             maxMeetingParticipants: planId === 'basic' ? 3 : planId === 'pro' ? 5 : 10
-         };
- 
-         res.status(200).json({
-             success: true,
-             clientSecret: paymentIntent.client_secret,
-             companyData // Make sure this includes stripeCustomerId
-         });
-     } catch (error) {
+        await User.findByIdAndUpdate(userId, { stripeCustomerId: customer.id });
+      }
+
+      // Create payment intent with idempotency key
+      const idempotencyKey = `pi_${userId}_${Date.now()}`;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: PLAN_AMOUNT_MAP[planId],
+        currency: 'usd',
+        customer: customer.id,
+        setup_future_usage: 'off_session',
+        metadata: {
+          planId,
+          userId: user._id.toString(),
+          companyName
+        },
+        payment_method_types: ['card'],
+        description: `Payment for ${companyName} (${planId} plan)`
+      }, {
+        idempotencyKey
+      });
+
+      // Prepare company data with proper typing
+      const companyData = {
+        companyName,
+        companyType,
+        companyDomain,
+        phoneNumber,
+        address: { buildingNo, street, city, state, country, postalCode },
+        companyAdmin: userId,
+        adminVerification: false,
+        planId,
+        stripeCustomerId: customer.id,
+        maxBranches: planId === 'basic' ? 1 : planId === 'pro' ? 3 : 5,
+        maxUsers: planId === 'basic' ? 10 : planId === 'pro' ? 30 : 50,
+        maxMeetingParticipants: planId === 'basic' ? 3 : planId === 'pro' ? 5 : 10
+      };
+
+      res.status(200).json({
+        success: true,
+        clientSecret: paymentIntent.client_secret,
+        companyData
+      });
+    } catch (error) {
       console.error('Error creating payment intent:', error);
       res.status(500).json({
         success: false,
@@ -143,62 +158,79 @@ export default class CompanyController {
   public async completeCompanyCreation(req: Request, res: Response): Promise<void> {
     try {
       const { companyData, paymentIntentId } = req.body;
-  
+      console.log("companyData------------>",companyData)
+
+      if (!companyData?.stripeCustomerId) {
+        throw new Error('Missing Stripe customer ID in company data');
+      }
+
       // 1. Verify payment was successful
       const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
       if (paymentIntent.status !== 'succeeded') {
         throw new Error('Payment not completed');
       }
-  
+
       // 2. Get payment method ID
       const paymentMethodId = paymentIntent.payment_method as string;
       if (!paymentMethodId) {
         throw new Error('Payment method not found in payment intent');
       }
-  
+
       // 3. Check if payment method is already attached
       try {
         await stripe.paymentMethods.attach(paymentMethodId, {
           customer: companyData.stripeCustomerId,
         });
-      } catch (error) {
+      } catch (error: any) {
         if (error.code !== 'payment_method_already_attached') {
           throw error;
         }
-        // Payment method is already attached, continue
       }
-  
+
       // 4. Set as default payment method
       await stripe.customers.update(companyData.stripeCustomerId, {
         invoice_settings: {
           default_payment_method: paymentMethodId,
         },
       });
-  
-      // 5. Create subscription with idempotency key
-      const subscription = await stripe.subscriptions.create({
-        customer: companyData.stripeCustomerId,
-        items: [{ price: PLAN_PRICE_MAP[companyData.planId] }],
-        payment_settings: {
-          save_default_payment_method: 'on_subscription',
-        },
-        expand: ['latest_invoice.payment_intent'],
-      }, {
-        idempotencyKey: `sub_${companyData.stripeCustomerId}_${Date.now()}`
-      });
-  
-      // 4. Create and save company record
+
+      // 5. Verify customer exists
+      const customer = await stripe.customers.retrieve(companyData.stripeCustomerId);
+      if (!customer || (customer as any).deleted) {
+        throw new Error('Stripe customer not found or was deleted');
+      }
+
+      // 6. Create subscription with proper error handling
+      let subscription;
+      try {
+        subscription = await stripe.subscriptions.create({
+          customer: companyData.stripeCustomerId,
+          items: [{ price: PLAN_PRICE_MAP[companyData.planId] }],
+          payment_settings: {
+            save_default_payment_method: 'on_subscription',
+          },
+          expand: ['latest_invoice.payment_intent'],
+        }, {
+          idempotencyKey: `sub_${companyData.stripeCustomerId}_${Date.now()}`
+        });
+      } catch (error: any) {
+        console.error('Subscription creation failed:', error);
+        throw new Error(`Failed to create subscription: ${error.message}`);
+      }
+
+      // 7. Create and save company record
       const company = new Company({
         ...companyData,
         stripeSubscriptionId: subscription.id,
         subscriptionStatus: subscription.status,
-        paymentMethodId: paymentIntent.payment_method as string,
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000)
+        paymentMethodId,
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        paymentStatus: 'paid'
       });
-  
+
       await company.save();
-  
-      // 5. Update user role
+
+      // 8. Update user role
       const user = await User.findById(companyData.companyAdmin);
       if (user && user.role !== 'companyAdmin') {
         await User.findByIdAndUpdate(user._id, { 
@@ -206,13 +238,13 @@ export default class CompanyController {
           companyId: company._id 
         });
       }
-  
+
       res.status(201).json({
         success: true,
         data: company
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error completing company creation:', error);
       res.status(500).json({
         success: false,
@@ -221,6 +253,7 @@ export default class CompanyController {
       });
     }
   }
+
   // Get all companies
   public async getAllCompanies(req: Request, res: Response): Promise<void> {
     try {

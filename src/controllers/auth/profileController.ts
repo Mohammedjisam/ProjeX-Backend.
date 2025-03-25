@@ -108,26 +108,26 @@ export const updateProfile = async (req: Request, res: Response) => {
 export const getProfile = async (req: Request, res: Response) => {
   try {
     if (!req.user || !req.user._id) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not authenticated'
-      });
+      return res.status(401).json({ success: false, message: 'User not authenticated' });
     }
     
-    const userId = req.user._id;
-    
-    const user = await User.findById(userId).select('-password');
-    
+    const user = await User.findById(req.user._id)
+      .select('-password')
+      .select('name email phoneNumber profileImage'); // Explicitly select fields
+      
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
     
     res.status(200).json({
       success: true,
-      user
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phoneNumber: user.phoneNumber || '', // Ensure phoneNumber is included
+        profileImage: user.profileImage
+      }
     });
   } catch (error: any) {
     console.error('Get profile error:', error);
